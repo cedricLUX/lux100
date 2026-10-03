@@ -32,7 +32,7 @@ Application web pour apprendre les 400 mots essentiels du luxembourgeois, 4 mots
 ### 1. Supabase (base de données et comptes)
 
 1. Créer un compte sur [supabase.com](https://supabase.com) puis un projet, région **Frankfurt (eu-central-1)** pour garder les données en Europe.
-2. **SQL Editor** : coller et exécuter `supabase/migrations/0001_init.sql`.
+2. **SQL Editor** : exécuter dans l'ordre les fichiers de `supabase/migrations/` (déjà fait pour le projet actuel).
 3. **Authentication > URL Configuration** : Site URL = l'adresse finale (ex. `https://moien100.lu`) ; ajouter `https://moien100.lu/auth/callback` et `http://localhost:3000/auth/callback` aux Redirect URLs.
 4. **Authentication > Emails > SMTP Settings** : brancher Resend (étape 2). L'envoi d'e-mails intégré à Supabase est limité à quelques messages par heure, insuffisant pour les confirmations d'inscription.
 5. **Authentication > Sign In / Providers** :
