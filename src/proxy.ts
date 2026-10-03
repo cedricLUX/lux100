@@ -4,6 +4,10 @@ import { NextResponse, type NextRequest } from "next/server";
 // Rafraîchit la session Supabase à chaque requête et protège l'espace /app.
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
+    console.error("Variables Supabase manquantes : voir .env.example");
+    return response;
+  }
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,

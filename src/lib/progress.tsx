@@ -47,7 +47,6 @@ export function useProgress() {
 }
 
 export function ProgressProvider({ children }: { children: ReactNode }) {
-  const supabase = useMemo(() => createClient(), []);
   const [today] = useState(() => todayIso());
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,14 +61,14 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   };
 
   const load = useCallback(async () => {
-    const { data: auth } = await supabase.auth.getUser();
+    const { data: auth } = await createClient().auth.getUser();
     if (!auth.user) return;
     const uid = auth.user.id;
     const [p, d, r, w] = await Promise.all([
-      supabase.from("profiles").select("*").eq("id", uid).single(),
-      supabase.from("day_progress").select("day, completed_on, via_test"),
-      supabase.from("word_reviews").select("word_n, box, due"),
-      supabase.from("weekly_results").select("week, best_score"),
+      createClient().from("profiles").select("*").eq("id", uid).single(),
+      createClient().from("day_progress").select("day, completed_on, via_test"),
+      createClient().from("word_reviews").select("word_n, box, due"),
+      createClient().from("weekly_results").select("week, best_score"),
     ]);
     if (p.error || d.error || r.error || w.error) {
       setError("Impossible de charger votre progression. Rechargez la page.");
@@ -79,7 +78,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     // Mémorise la visite précédente pour le message de retour après une absence.
     if (prof.last_visit !== today) {
       const patch = { prev_visit: prof.last_visit, last_visit: today };
-      await supabase.from("profiles").update(patch).eq("id", uid);
+      await createClient().from("profiles").update(patch).eq("id", uid);
       prof = { ...prof, ...patch };
     }
     setProfile(prof);
@@ -87,7 +86,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     setReviews(new Map((r.data as ReviewRow[]).map((x) => [x.word_n, x])));
     setWeekly(new Map((w.data as WeeklyRow[]).map((x) => [x.week, x.best_score])));
     setReady(true);
-  }, [supabase, today]);
+  }, [today]);
 
   useEffect(() => {
     // Chargement initial des données de l'apprenant depuis Supabase.
@@ -103,12 +102,12 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   const updateProfile = useCallback(
     async (patch: Partial<Profile>) => {
       if (!profile) return false;
-      const { error } = await supabase.from("profiles").update(patch).eq("id", profile.id);
+      const { error } = await createClient().from("profiles").update(patch).eq("id", profile.id);
       if (fail(error)) return false;
       setProfile({ ...profile, ...patch });
       return true;
     },
-    [profile, supabase],
+    [profile],
   );
 
   const learnCurrentDay = useCallback(async () => {
@@ -118,10 +117,10 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       .filter((w) => !reviews.has(w.n))
       .map((w) => ({ user_id: profile.id, word_n: w.n, box: 0, due: addDays(today, 1) }));
     const row = { user_id: profile.id, day, completed_on: today, via_test: false };
-    const a = await supabase.from("day_progress").upsert(row);
+    const a = await createClient().from("day_progress").upsert(row);
     if (fail(a.error)) return;
     if (newReviews.length) {
-      const b = await supabase.from("word_reviews").upsert(newReviews);
+      const b = await createClient().from("word_reviews").upsert(newReviews);
       if (fail(b.error)) return;
     }
     const finished = new Set([...days.keys(), day]);
@@ -136,14 +135,14 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     const rv = new Map(reviews);
     newReviews.forEach((x) => rv.set(x.word_n, x));
     setReviews(rv);
-  }, [profile, reviews, days, today, supabase, updateProfile]);
+  }, [profile, reviews, days, today, updateProfile]);
 
   const gradeWord = useCallback(
     async (n: number, remembered: boolean) => {
       const cur = reviews.get(n);
       if (!cur || !profile) return;
       const next = { word_n: n, ...grade(cur.box, remembered, today) };
-      const { error } = await supabase
+      const { error } = await createClient()
         .from("word_reviews")
         .update({ box: next.box, due: next.due })
         .eq("user_id", profile.id)
@@ -151,20 +150,20 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       if (fail(error)) return;
       setReviews(new Map(reviews).set(n, next));
     },
-    [reviews, profile, today, supabase],
+    [reviews, profile, today],
   );
 
   const saveWeekly = useCallback(
     async (week: number, score: number) => {
       if (!profile) return;
       const best = Math.max(weekly.get(week) ?? 0, score);
-      const { error } = await supabase
+      const { error } = await createClient()
         .from("weekly_results")
         .upsert({ user_id: profile.id, week, best_score: best });
       if (fail(error)) return;
       setWeekly(new Map(weekly).set(week, best));
     },
-    [profile, weekly, supabase],
+    [profile, weekly],
   );
 
   const passPlacement = useCallback(
@@ -179,9 +178,9 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
           if (!reviews.has(w.n)) newReviews.push({ word_n: w.n, box: PLACEMENT_BOX, due: addDays(today, 7) });
         }
       }
-      const a = await supabase.from("day_progress").upsert(rows.map((r) => ({ ...r, user_id: profile.id })));
+      const a = await createClient().from("day_progress").upsert(rows.map((r) => ({ ...r, user_id: profile.id })));
       if (fail(a.error)) return;
-      const b = await supabase.from("word_reviews").upsert(newReviews.map((r) => ({ ...r, user_id: profile.id })));
+      const b = await createClient().from("word_reviews").upsert(newReviews.map((r) => ({ ...r, user_id: profile.id })));
       if (fail(b.error)) return;
       const finished = new Set([...days.keys(), ...rows.map((r) => r.day)]);
       if (!(await updateProfile({ current_day: nextOpenDay(to + 1, finished) }))) return;
@@ -192,7 +191,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       newReviews.forEach((r) => rm.set(r.word_n, r));
       setReviews(rm);
     },
-    [profile, days, reviews, today, supabase, updateProfile],
+    [profile, days, reviews, today, updateProfile],
   );
 
   const saveGameScore = useCallback(
@@ -208,16 +207,16 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     if (!profile) return;
     const uid = profile.id;
     const results = await Promise.all([
-      supabase.from("day_progress").delete().eq("user_id", uid),
-      supabase.from("word_reviews").delete().eq("user_id", uid),
-      supabase.from("weekly_results").delete().eq("user_id", uid),
+      createClient().from("day_progress").delete().eq("user_id", uid),
+      createClient().from("word_reviews").delete().eq("user_id", uid),
+      createClient().from("weekly_results").delete().eq("user_id", uid),
     ]);
     if (results.some((r) => fail(r.error))) return;
     await updateProfile({ current_day: 1, streak: 0, streak_date: null, game_best: 0 });
     setDays(new Map());
     setReviews(new Map());
     setWeekly(new Map());
-  }, [profile, supabase, updateProfile]);
+  }, [profile, updateProfile]);
 
   const value: Progress = {
     ready,

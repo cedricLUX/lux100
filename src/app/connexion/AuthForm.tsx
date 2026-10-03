@@ -28,7 +28,6 @@ export function AuthForm() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(params.get("erreur") ? "La connexion a échoué. Réessayez." : null);
   const [info, setInfo] = useState<string | null>(null);
-  const supabase = createClient();
   const callback = (suite: string) => `${window.location.origin}/auth/callback?suite=${encodeURIComponent(suite)}`;
 
   async function submit(e: React.FormEvent) {
@@ -37,11 +36,11 @@ export function AuthForm() {
     setError(null);
     setInfo(null);
     if (mode === "connexion") {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await createClient().auth.signInWithPassword({ email, password });
       if (error) setError(fr(error.message));
       else window.location.assign(next);
     } else if (mode === "inscription") {
-      const { data, error } = await supabase.auth.signUp({
+      const { data, error } = await createClient().auth.signUp({
         email,
         password,
         options: { emailRedirectTo: callback(next) },
@@ -50,7 +49,7 @@ export function AuthForm() {
       else if (data.session) window.location.assign(next);
       else setInfo("Compte créé ! Cliquez sur le lien envoyé à " + email + " pour l'activer.");
     } else {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: callback("/app/compte") });
+      const { error } = await createClient().auth.resetPasswordForEmail(email, { redirectTo: callback("/app/compte") });
       if (error) setError(fr(error.message));
       else setInfo("Si un compte existe pour " + email + ", un lien pour changer le mot de passe vient d'être envoyé.");
     }
@@ -59,7 +58,7 @@ export function AuthForm() {
 
   async function oauth(provider: "google" | "apple") {
     setError(null);
-    const { error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: callback(next) } });
+    const { error } = await createClient().auth.signInWithOAuth({ provider, options: { redirectTo: callback(next) } });
     if (error) setError(fr(error.message));
   }
 

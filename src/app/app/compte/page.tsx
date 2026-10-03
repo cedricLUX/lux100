@@ -9,17 +9,16 @@ export default function Account() {
   const [password, setPassword] = useState("");
   const [pwState, setPwState] = useState<"idle" | "ok" | "error">("idle");
   if (!profile) return null;
-  const supabase = createClient();
 
   async function changePassword(e: React.FormEvent) {
     e.preventDefault();
-    const { error } = await supabase.auth.updateUser({ password });
+    const { error } = await createClient().auth.updateUser({ password });
     setPwState(error ? "error" : "ok");
     if (!error) setPassword("");
   }
 
   async function signOut() {
-    await supabase.auth.signOut();
+    await createClient().auth.signOut();
     // Rechargement complet volontaire : vide l'état de progression en mémoire.
     // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.assign("/");
